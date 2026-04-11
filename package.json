@@ -1,0 +1,14 @@
+{
+  "name": "somestack-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "sync:versions": "node ./scripts/sync-template-package-versions.mjs",
+    "sync:templates": "node ./scripts/sync-templates.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify:generated-apps": "node ./scripts/verify-generated-apps.mjs"
+  }
+}

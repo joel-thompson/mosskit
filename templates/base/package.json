@@ -1,0 +1,28 @@
+{
+  "name": "__APP_PACKAGE_NAME__",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "bun ./scripts/dev.mjs",
+    "build": "bun run --filter shared typecheck && bun run --filter backend build && bun run --filter frontend build",
+    "lint": "oxlint .",
+    "typecheck": "bun run --filter backend typecheck && bun run --filter frontend typecheck && bun run --filter shared typecheck",
+    "test": "bun run --filter backend test && bun run --filter frontend test && bun run --filter shared test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:start": "bun run --filter backend db:start",
+    "db:stop": "bun run --filter backend db:stop",
+    "db:generate": "bun run --filter backend db:generate",
+    "db:migrate": "bun run --filter backend db:migrate",
+    "db:studio": "bun run --filter backend db:studio"
+  },
+  "devDependencies": {
+    "oxlint": "^1.59.0",
+    "prettier": "^3.8.2",
+    "typescript": "^5.9.3"
+  }
+}

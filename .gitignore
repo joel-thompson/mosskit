@@ -1,0 +1,5 @@
+node_modules
+packages/create-somestack/templates
+*.log
+bhvr
+training-tracker
