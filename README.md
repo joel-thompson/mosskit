@@ -2,9 +2,17 @@
 
 MossKit is an opinionated Bun-first starter generator for full-stack apps built with Vite + React, Hono, Drizzle, and a shared TypeScript package.
 
+Created by Joel Thompson.
+
 ```bash
 bun create mosskit@latest my-app
 ```
+
+## Who It's For
+
+MossKit is for solo builders and small teams who want a batteries-included full-stack monorepo without committing to a deployment platform up front.
+
+It is a good fit if you want shared contracts, sensible defaults, and a starter you can actually shape into your own app instead of working around a hosted framework's assumptions.
 
 ## Why MossKit
 
