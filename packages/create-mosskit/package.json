@@ -1,0 +1,41 @@
+{
+  "name": "create-mosskit",
+  "version": "0.1.0",
+  "description": "Create a MossKit project",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-mosskit": "./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joel-thompson/mosskit.git"
+  },
+  "homepage": "https://github.com/joel-thompson/mosskit#readme",
+  "bugs": {
+    "url": "https://github.com/joel-thompson/mosskit/issues"
+  },
+  "keywords": [
+    "bun",
+    "starter",
+    "template",
+    "scaffold",
+    "monorepo",
+    "vite",
+    "react",
+    "hono",
+    "drizzle",
+    "postgres"
+  ],
+  "files": [
+    "README.md",
+    "src",
+    "templates"
+  ],
+  "scripts": {
+    "prepack": "node ../../scripts/sync-templates.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

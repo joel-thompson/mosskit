@@ -1,5 +1,5 @@
 {
-  "name": "somestack-workspace",
+  "name": "mosskit-workspace",
   "private": true,
   "type": "module",
   "workspaces": [

@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
-const cliPath = path.join(repoRoot, "packages", "create-somestack", "src", "index.js");
+const cliPath = path.join(repoRoot, "packages", "create-mosskit", "src", "index.js");
 
 function log(message) {
   process.stdout.write(`${message}\n`);
@@ -67,11 +67,11 @@ async function runDevCheck(appDir) {
       const output = chunk.toString();
       process.stdout.write(output);
 
-      if (output.includes("[somestack] starting backend")) {
+      if (output.includes("[mosskit] starting backend")) {
         sawBackend = true;
       }
 
-      if (output.includes("[somestack] starting frontend")) {
+      if (output.includes("[mosskit] starting frontend")) {
         sawFrontend = true;
       }
 
@@ -142,7 +142,7 @@ async function verifyScenario(tempDir, name, createArgs, postCreateArgs = []) {
   await runCommand("bun", ["run", "build"], appDir);
 }
 
-const tempDir = await mkdtemp(path.join(os.tmpdir(), "somestack-generated-verify-"));
+const tempDir = await mkdtemp(path.join(os.tmpdir(), "mosskit-generated-verify-"));
 const keepApps = process.env.KEEP_VERIFY_APPS === "1";
 
 try {

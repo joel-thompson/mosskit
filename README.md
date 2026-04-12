@@ -1,102 +1,145 @@
-# Somestack
+# MossKit
 
-`Somestack` is a Bun-first full-stack starter generator built around:
-
-- Bun workspaces
-- Vite + React
-- Hono
-- Drizzle + Postgres
-- shared TypeScript contracts
-
-The generator package lives in [packages/create-somestack](/Users/Joel/src/some-stack/packages/create-somestack).
-
-## Workspace Layout
-
-- `packages/create-somestack`: the published `create-somestack` CLI
-- `templates/base`: the base generated application
-- `templates/features/auth`: Clerk auth overlay
-- `templates/features/shadcn`: shadcn/ui overlay
-- `tests`: framework smoke tests for the CLI
-
-## CLI Commands
-
-Create a new app:
+MossKit is an opinionated Bun-first starter generator for full-stack apps built with Vite + React, Hono, Drizzle, and a shared TypeScript package.
 
 ```bash
-bun create somestack@latest my-app
+bun create mosskit@latest my-app
 ```
 
-Manage an existing generated app from its root:
+## Why MossKit
+
+MossKit is for teams that want a clean monorepo with the frontend, backend, and shared contracts wired up from the start.
+
+- Shared TypeScript + Zod contracts between frontend and backend
+- Bun workspaces and Bun-first local tooling
+- Vite + React with TanStack Router and TanStack Query
+- Hono backend with Drizzle and PostgreSQL
+- Optional Clerk auth and shadcn/ui
+- No deployment platform baked in
+
+## What You Get
+
+Always included:
+
+- Bun workspaces monorepo
+- `frontend`, `backend`, and `shared` packages
+- Vitest, Oxlint, and Prettier
+- Zod validation and shared types
+- Docker Compose for local Postgres
+- Seeded example tests in all workspaces
+
+Optional features:
+
+- `auth`: Clerk integration for frontend and backend
+- `shadcn`: shadcn/ui setup with a small starter component set
+
+## Quickstart
+
+1. Create a new app:
 
 ```bash
-bun create somestack@latest info
-bun create somestack@latest features
-bun create somestack@latest add auth
-bun create somestack@latest add shadcn
+bun create mosskit@latest my-app
 ```
 
-Generated apps include a root `somestack.json` manifest. The app-management commands read and update that file.
-
-## Local Development
-
-Run the framework smoke tests:
+2. Enter the project:
 
 ```bash
-node --test tests/*.test.mjs
+cd my-app
 ```
 
-Copy root templates into the publishable package before packing or publishing:
+3. Start the local database:
 
 ```bash
-node ./scripts/sync-templates.mjs
+bun run db:start
 ```
 
-Run full generated-app verification:
+4. Run the app:
 
 ```bash
-node ./scripts/verify-generated-apps.mjs
+bun run dev
 ```
 
-## Dependency Versions
+The frontend runs on `http://localhost:5173`.
+The backend runs on `http://localhost:3000`.
+
+## Manage an Existing App
+
+Generated apps include a root `mosskit.json` manifest. MossKit uses that file for project info and feature management.
+
+```bash
+bun create mosskit@latest info
+bun create mosskit@latest features
+bun create mosskit@latest add auth
+bun create mosskit@latest add shadcn
+```
+
+## Generated Project Shape
+
+```text
+my-app/
+├── frontend/   # Vite + React app
+├── backend/    # Hono + Drizzle API
+├── shared/     # shared types, schemas, and utilities
+└── mosskit.json
+```
+
+## Opinionated Defaults
+
+MossKit chooses the local architecture and tooling for you:
+
+- Bun as the runtime and workspace manager
+- Vite + React on the frontend
+- Hono on the backend
+- Drizzle + PostgreSQL for the database layer
+- shared contracts in a dedicated `shared` package
+
+MossKit leaves these choices to you:
+
+- deployment platform
+- production hosting topology
+- whether to include auth
+- whether to include shadcn/ui
+
+## Status
+
+MossKit is early-stage, but the generator is already scaffoldable and verified against fresh generated apps with install, dev, typecheck, test, and build checks.
+
+## For Maintainers
+
+The generator package lives in [packages/create-mosskit](/Users/Joel/src/some-stack/packages/create-mosskit).
 
 Generated app dependency versions are maintained from a single source:
 
-- [packages/create-somestack/src/dependency-versions.js](/Users/Joel/src/some-stack/packages/create-somestack/src/dependency-versions.js)
+- [packages/create-mosskit/src/dependency-versions.js](/Users/Joel/src/some-stack/packages/create-mosskit/src/dependency-versions.js)
 
-That file is the source of truth for the generated monorepo's root, frontend, backend, shared, and optional feature dependencies.
+Update workflow:
 
-### Update Workflow
-
-1. Change versions in `packages/create-somestack/src/dependency-versions.js`
-2. Sync the base template manifests:
+1. Change versions in `packages/create-mosskit/src/dependency-versions.js`
+2. Sync template manifests:
 
 ```bash
 node ./scripts/sync-template-package-versions.mjs
 ```
 
-3. Refresh the packaged template copy if needed:
+3. Refresh the packaged template copy:
 
 ```bash
 node ./scripts/sync-templates.mjs
 ```
 
-4. Run the framework smoke tests:
+4. Run framework smoke tests:
 
 ```bash
 node --test tests/*.test.mjs
 ```
 
-5. Run real generated-app verification:
+5. Run full generated-app verification:
 
 ```bash
 node ./scripts/verify-generated-apps.mjs
 ```
 
-The scaffold also reapplies the centralized version map when generating a new app, so generated projects stay aligned with the central version source even if a template `package.json` was not edited by hand.
+Verification layers:
 
-## Verification Layers
-
-- `node --test tests/*.test.mjs`: verifies the generator shape, overlays, manifests, and expected files
-- `node ./scripts/verify-generated-apps.mjs`: scaffolds fresh temporary apps and runs `bun install`, `bun run dev`, `bun run typecheck`, `bun run test`, and `bun run build`
-
-For package upgrades, use both. The smoke tests catch generator regressions, while the generated-app verifier proves the updated dependencies still work in real scaffolded projects.
+- `node --test tests/*.test.mjs`: generator shape, overlays, manifests, and expected files
+- `node ./scripts/verify-generated-apps.mjs`: fresh scaffold install, dev, typecheck, test, and build verification

@@ -1,15 +1,15 @@
-# Somestack
+# MossKit
 
-Somestack is a Bun-first starter generator for a full-stack monorepo built around Vite + React on the frontend, Hono on the backend, and a shared TypeScript package for contracts, validation, and reusable code.
+MossKit is a Bun-first starter generator for a full-stack monorepo built around Vite + React on the frontend, Hono on the backend, and a shared TypeScript package for contracts, validation, and reusable code.
 
 ## Structure
 
-- `packages/create-somestack`: the CLI that scaffolds new apps
+- `packages/create-mosskit`: the CLI that scaffolds new apps
 - `templates/base`: the default generated app
 - `templates/features/auth`: Clerk auth overlay applied by the CLI
 - `templates/features/shadcn`: shadcn/ui overlay applied by the CLI
 - `tests`: smoke tests for the generator
-- generated apps include a root `somestack.json` manifest used by `info`, `features`, and `add`
+- generated apps include a root `mosskit.json` manifest used by `info`, `features`, and `add`
 
 ## Generated App Shape
 

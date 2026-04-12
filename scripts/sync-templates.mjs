@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const sourceDir = path.join(rootDir, "templates");
-const targetDir = path.join(rootDir, "packages", "create-somestack", "templates");
+const targetDir = path.join(rootDir, "packages", "create-mosskit", "templates");
 
 await rm(targetDir, { force: true, recursive: true });
 await mkdir(path.dirname(targetDir), { recursive: true });
