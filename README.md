@@ -5,7 +5,7 @@ MossKit is an opinionated Bun-first starter generator for full-stack apps built 
 Created by Joel Thompson.
 
 ```bash
-bun create mosskit@latest my-app
+bunx @joelthompson/create-mosskit my-app
 ```
 
 ## Who It's For
@@ -46,7 +46,7 @@ Optional features:
 1. Create a new app:
 
 ```bash
-bun create mosskit@latest my-app
+bunx @joelthompson/create-mosskit my-app
 ```
 
 2. Enter the project:
@@ -75,10 +75,10 @@ The backend runs on `http://localhost:3000`.
 Generated apps include a root `mosskit.json` manifest. MossKit uses that file for project info and feature management.
 
 ```bash
-bun create mosskit@latest info
-bun create mosskit@latest features
-bun create mosskit@latest add auth
-bun create mosskit@latest add shadcn
+bunx @joelthompson/create-mosskit info
+bunx @joelthompson/create-mosskit features
+bunx @joelthompson/create-mosskit add auth
+bunx @joelthompson/create-mosskit add shadcn
 ```
 
 ## Generated Project Shape

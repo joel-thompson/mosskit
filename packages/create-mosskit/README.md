@@ -1,18 +1,18 @@
-# create-mosskit
+# @joelthompson/create-mosskit
 
 Scaffold a new MossKit project:
 
 ```bash
-bun create mosskit@latest my-app
+bunx @joelthompson/create-mosskit my-app
 ```
 
 Manage an existing generated app from its root:
 
 ```bash
-bun create mosskit@latest info
-bun create mosskit@latest features
-bun create mosskit@latest add auth
-bun create mosskit@latest add shadcn
+bunx @joelthompson/create-mosskit info
+bunx @joelthompson/create-mosskit features
+bunx @joelthompson/create-mosskit add auth
+bunx @joelthompson/create-mosskit add shadcn
 ```
 
 Non-interactive example:

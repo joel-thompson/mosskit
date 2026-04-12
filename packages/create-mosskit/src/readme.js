@@ -70,10 +70,10 @@ This app includes \`mosskit.json\`, which is used by MossKit app-management comm
 From the app root you can run:
 
 \`\`\`bash
-bun create mosskit@latest info
-bun create mosskit@latest features
-bun create mosskit@latest add auth
-bun create mosskit@latest add shadcn
+bunx @joelthompson/create-mosskit info
+bunx @joelthompson/create-mosskit features
+bunx @joelthompson/create-mosskit add auth
+bunx @joelthompson/create-mosskit add shadcn
 \`\`\`
 
 ## Example Tests

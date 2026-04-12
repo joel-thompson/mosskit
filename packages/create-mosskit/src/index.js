@@ -65,7 +65,7 @@ function printHelp() {
   console.log(`Create and manage ${frameworkMetadata.displayName} projects
 
 Usage:
-  bun create mosskit@latest my-app
+  bunx @joelthompson/create-mosskit my-app
   create-mosskit my-app [options]
   create-mosskit create my-app [options]
   create-mosskit add <feature> [--install]

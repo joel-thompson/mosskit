@@ -1,5 +1,6 @@
 node_modules
-packages/create-somestack/templates
+packages/create-mosskit/templates
 *.log
 bhvr
 training-tracker
+RELEASE_PROCESS.local.md
