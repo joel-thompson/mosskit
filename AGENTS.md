@@ -9,6 +9,7 @@ Somestack is a Bun-first starter generator for a full-stack monorepo built aroun
 - `templates/features/auth`: Clerk auth overlay applied by the CLI
 - `templates/features/shadcn`: shadcn/ui overlay applied by the CLI
 - `tests`: smoke tests for the generator
+- generated apps include a root `somestack.json` manifest used by `info`, `features`, and `add`
 
 ## Generated App Shape
 

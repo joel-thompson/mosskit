@@ -15,6 +15,8 @@ const processes = [
 
 const children = [];
 let shuttingDown = false;
+let pendingExitCode = 0;
+let forceKillTimer;
 
 function log(message) {
   process.stdout.write(`${message}\n`);
@@ -27,21 +29,58 @@ function writePrefixedOutput(prefix, chunk, stream = process.stdout) {
   }
 }
 
+function killChildTree(child, signal) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return false;
+  }
+
+  try {
+    process.kill(-child.pid, signal);
+    return true;
+  } catch {
+    try {
+      child.kill(signal);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function exitIfStopped() {
+  if (!shuttingDown) {
+    return;
+  }
+
+  const activeChildren = children.filter((child) => child.exitCode === null && child.signalCode === null);
+  if (activeChildren.length > 0) {
+    return;
+  }
+
+  clearTimeout(forceKillTimer);
+  process.exit(pendingExitCode);
+}
+
 function shutdown(exitCode = 0) {
   if (shuttingDown) {
+    pendingExitCode = Math.max(pendingExitCode, exitCode);
     return;
   }
 
   shuttingDown = true;
+  pendingExitCode = exitCode;
+
   for (const child of children) {
-    if (!child.killed) {
-      child.kill("SIGINT");
-    }
+    killChildTree(child, "SIGINT");
   }
 
-  setTimeout(() => {
-    process.exit(exitCode);
-  }, 100);
+  forceKillTimer = setTimeout(() => {
+    for (const child of children) {
+      killChildTree(child, "SIGKILL");
+    }
+  }, 3000);
+
+  exitIfStopped();
 }
 
 for (const processDefinition of processes) {
@@ -49,7 +88,8 @@ for (const processDefinition of processes) {
 
   const child = spawn(processDefinition.command, processDefinition.args, {
     cwd: process.cwd(),
-    stdio: ["ignore", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true
   });
 
   child.stdout.on("data", (chunk) => {
@@ -62,6 +102,7 @@ for (const processDefinition of processes) {
 
   child.on("exit", (code) => {
     if (shuttingDown) {
+      exitIfStopped();
       return;
     }
 

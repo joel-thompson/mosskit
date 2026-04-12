@@ -173,13 +173,7 @@ async function appendUniqueLines(filePath, lines) {
   }
 
   const existingContent = await readFile(filePath, "utf8");
-  const nextLines = [...lines];
-
-  for (const line of nextLines) {
-    if (existingContent.includes(line)) {
-      nextLines.splice(nextLines.indexOf(line), 1);
-    }
-  }
+  const nextLines = lines.filter((line) => !existingContent.includes(line));
 
   if (nextLines.length === 0) {
     return;

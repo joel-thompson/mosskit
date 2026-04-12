@@ -18,6 +18,25 @@ The generator package lives in [packages/create-somestack](/Users/Joel/src/some-
 - `templates/features/shadcn`: shadcn/ui overlay
 - `tests`: framework smoke tests for the CLI
 
+## CLI Commands
+
+Create a new app:
+
+```bash
+bun create somestack@latest my-app
+```
+
+Manage an existing generated app from its root:
+
+```bash
+bun create somestack@latest info
+bun create somestack@latest features
+bun create somestack@latest add auth
+bun create somestack@latest add shadcn
+```
+
+Generated apps include a root `somestack.json` manifest. The app-management commands read and update that file.
+
 ## Local Development
 
 Run the framework smoke tests:
@@ -78,6 +97,6 @@ The scaffold also reapplies the centralized version map when generating a new ap
 ## Verification Layers
 
 - `node --test tests/*.test.mjs`: verifies the generator shape, overlays, manifests, and expected files
-- `node ./scripts/verify-generated-apps.mjs`: scaffolds fresh temporary apps and runs `bun install`, `bun run typecheck`, `bun run test`, and `bun run build`
+- `node ./scripts/verify-generated-apps.mjs`: scaffolds fresh temporary apps and runs `bun install`, `bun run dev`, `bun run typecheck`, `bun run test`, and `bun run build`
 
 For package upgrades, use both. The smoke tests catch generator regressions, while the generated-app verifier proves the updated dependencies still work in real scaffolded projects.

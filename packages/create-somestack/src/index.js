@@ -256,6 +256,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`Failed to create project: ${error.message}`);
+  console.error(`Failed to run command: ${error.message}`);
   process.exitCode = 1;
 });

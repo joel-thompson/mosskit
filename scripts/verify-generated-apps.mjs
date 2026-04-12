@@ -88,7 +88,7 @@ async function runDevCheck(appDir) {
     child.stdout.on("data", handleChunk);
     child.stderr.on("data", handleChunk);
 
-    child.on("exit", (code) => {
+    child.on("exit", (code, signal) => {
       clearTimeout(timeout);
       finish(() => {
         if (!sawBackend || !sawFrontend) {
@@ -96,8 +96,12 @@ async function runDevCheck(appDir) {
           return;
         }
 
-        if (code !== 0) {
-          reject(new Error(`bun run dev exited with code ${code ?? "unknown"}`));
+        if (code !== 0 && signal !== "SIGINT") {
+          reject(
+            new Error(
+              `bun run dev exited with code ${code ?? "unknown"}${signal ? ` (signal ${signal})` : ""}`
+            )
+          );
           return;
         }
 
@@ -150,6 +154,11 @@ try {
   log(`Workspace: ${tempDir}`);
 } finally {
   if (!keepApps) {
-    await rm(tempDir, { recursive: true, force: true });
+    await rm(tempDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 200
+    });
   }
 }
