@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "build": "tsc --noEmit && bun build ./src/index.ts --outdir ./dist --target bun",
+    "start": "bun ./dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

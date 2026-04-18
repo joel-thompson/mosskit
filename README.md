@@ -23,7 +23,7 @@ MossKit is for teams that want a clean monorepo with the frontend, backend, and 
 - Vite + React with TanStack Router and TanStack Query
 - Hono backend with Drizzle and PostgreSQL
 - Optional Clerk auth and shadcn/ui
-- No deployment platform baked in
+- No deployment platform required, with optional Railway example assets included in generated apps
 
 ## What You Get
 
@@ -103,7 +103,7 @@ MossKit chooses the local architecture and tooling for you:
 
 MossKit leaves these choices to you:
 
-- deployment platform
+- deployment platform, even if you start from the optional Railway examples
 - production hosting topology
 - whether to include auth
 - whether to include shadcn/ui

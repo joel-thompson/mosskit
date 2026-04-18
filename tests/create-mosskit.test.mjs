@@ -49,16 +49,25 @@ test("scaffolds the base preset with a manifest", async () => {
     assert.equal(await exists(path.join(app.targetDir, "shared/src/validation/exampleStatus.test.ts")), true);
     assert.equal(await exists(path.join(app.targetDir, "AGENTS.md")), true);
     assert.equal(await exists(path.join(app.targetDir, "mosskit.json")), true);
+    assert.equal(await exists(path.join(app.targetDir, ".dockerignore")), true);
+    assert.equal(await exists(path.join(app.targetDir, "deploy/railway/backend.Dockerfile")), true);
+    assert.equal(await exists(path.join(app.targetDir, "deploy/railway/frontend.Dockerfile")), true);
+    assert.equal(await exists(path.join(app.targetDir, "deploy/railway/frontend.nginx.conf")), true);
+    assert.equal(await exists(path.join(app.targetDir, "deploy/railway/README.md")), true);
 
     const manifest = await readJson(path.join(app.targetDir, "mosskit.json"));
     const rootPackage = await readJson(path.join(app.targetDir, "package.json"));
     const frontendPackage = await readJson(path.join(app.targetDir, "frontend/package.json"));
+    const backendPackage = await readJson(path.join(app.targetDir, "backend/package.json"));
+    const readme = await readFile(path.join(app.targetDir, "README.md"), "utf8");
 
     assert.equal(rootPackage.name, "base-app");
     assert.deepEqual(manifest.features, []);
     assert.equal(manifest.framework.name, "mosskit");
     assert.equal(frontendPackage.dependencies["@clerk/clerk-react"], undefined);
+    assert.equal(backendPackage.scripts.start, "bun ./dist/index.js");
     assert.equal(await exists(path.join(app.targetDir, "frontend/components.json")), false);
+    assert.match(readme, /deploy\/railway\/README\.md/);
   } finally {
     await app.cleanup();
   }
@@ -72,11 +81,16 @@ test("scaffolds feature presets and records them in the manifest", async () => {
     const frontendPackage = await readJson(path.join(app.targetDir, "frontend/package.json"));
     const backendPackage = await readJson(path.join(app.targetDir, "backend/package.json"));
     const readme = await readFile(path.join(app.targetDir, "README.md"), "utf8");
+    const railwayReadme = await readFile(path.join(app.targetDir, "deploy/railway/README.md"), "utf8");
 
     assert.deepEqual(manifest.features, ["auth", "shadcn"]);
     assert.equal(frontendPackage.dependencies["@clerk/clerk-react"], "^5.58.0");
     assert.equal(backendPackage.dependencies["@hono/clerk-auth"], "^3.0.3");
     assert.match(readme, /mosskit\.json/);
+    assert.match(readme, /deploy\/railway\/README\.md/);
+    assert.match(railwayReadme, /CLERK_SECRET_KEY/);
+    assert.match(railwayReadme, /CLERK_PUBLISHABLE_KEY/);
+    assert.match(railwayReadme, /VITE_CLERK_PUBLISHABLE_KEY/);
     assert.equal(await exists(path.join(app.targetDir, "frontend/src/routes/sign-in.tsx")), true);
     assert.equal(await exists(path.join(app.targetDir, "frontend/src/components/ui/card.tsx")), true);
   } finally {
@@ -111,12 +125,14 @@ test("add auth updates manifest, env, and dependencies", async () => {
     const backendPackage = await readJson(path.join(app.targetDir, "backend/package.json"));
     const frontendEnv = await readFile(path.join(app.targetDir, "frontend/.env.example"), "utf8");
     const backendEnv = await readFile(path.join(app.targetDir, "backend/.env.example"), "utf8");
+    const railwayReadme = await readFile(path.join(app.targetDir, "deploy/railway/README.md"), "utf8");
 
     assert.deepEqual(manifest.features, ["auth"]);
     assert.equal(frontendPackage.dependencies["@clerk/clerk-react"], "^5.58.0");
     assert.equal(backendPackage.dependencies["@hono/clerk-auth"], "^3.0.3");
     assert.match(frontendEnv, /VITE_CLERK_PUBLISHABLE_KEY/);
     assert.match(backendEnv, /CLERK_SECRET_KEY/);
+    assert.match(railwayReadme, /CLERK_SECRET_KEY/);
     assert.equal(await exists(path.join(app.targetDir, "backend/src/utils/auth.ts")), true);
   } finally {
     await app.cleanup();

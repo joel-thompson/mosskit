@@ -2,7 +2,7 @@ import { cp, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/p
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { buildProjectReadme } from "./readme.js";
+import { buildProjectReadme, buildRailwayDeploymentReadme } from "./readme.js";
 import { applyTemplateVersions } from "./dependency-versions.js";
 import { getFeature, isFeatureSupported, listFeatures, normalizeFeatureIds } from "./features.js";
 import { createProjectManifest, readProjectManifest, writeProjectManifest } from "./manifest.js";
@@ -142,7 +142,8 @@ function getProjectPaths(projectDir) {
     sharedPackage: path.join(projectDir, "shared", "package.json"),
     frontendEnv: path.join(projectDir, "frontend", ".env.example"),
     backendEnv: path.join(projectDir, "backend", ".env.example"),
-    readme: path.join(projectDir, "README.md")
+    readme: path.join(projectDir, "README.md"),
+    railwayReadme: path.join(projectDir, "deploy", "railway", "README.md")
   };
 }
 
@@ -254,9 +255,21 @@ async function writeProjectReadme(projectDir, manifest) {
   );
 }
 
+async function writeProjectRailwayReadme(projectDir, manifest) {
+  const railwayReadmePath = getProjectPaths(projectDir).railwayReadme;
+  await writeFile(
+    railwayReadmePath,
+    buildRailwayDeploymentReadme({
+      appName: manifest.project.name,
+      features: manifest.features
+    })
+  );
+}
+
 async function writeProjectMetadata(projectDir, manifest) {
   await writeProjectManifest(projectDir, manifest);
   await writeProjectReadme(projectDir, manifest);
+  await writeProjectRailwayReadme(projectDir, manifest);
 }
 
 function buildTokenMap({ appDisplayName, packageName }) {
