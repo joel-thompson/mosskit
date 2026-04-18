@@ -60,6 +60,14 @@ test("scaffolds the base preset with a manifest", async () => {
     const frontendPackage = await readJson(path.join(app.targetDir, "frontend/package.json"));
     const backendPackage = await readJson(path.join(app.targetDir, "backend/package.json"));
     const readme = await readFile(path.join(app.targetDir, "README.md"), "utf8");
+    const railwayBackendDockerfile = await readFile(
+      path.join(app.targetDir, "deploy/railway/backend.Dockerfile"),
+      "utf8"
+    );
+    const railwayFrontendDockerfile = await readFile(
+      path.join(app.targetDir, "deploy/railway/frontend.Dockerfile"),
+      "utf8"
+    );
 
     assert.equal(rootPackage.name, "base-app");
     assert.deepEqual(manifest.features, []);
@@ -68,6 +76,8 @@ test("scaffolds the base preset with a manifest", async () => {
     assert.equal(backendPackage.scripts.start, "bun ./dist/index.js");
     assert.equal(await exists(path.join(app.targetDir, "frontend/components.json")), false);
     assert.match(readme, /deploy\/railway\/README\.md/);
+    assert.match(railwayBackendDockerfile, /COPY tsconfig\.base\.json \.\//);
+    assert.match(railwayFrontendDockerfile, /COPY tsconfig\.base\.json \.\//);
   } finally {
     await app.cleanup();
   }

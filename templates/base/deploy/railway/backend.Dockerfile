@@ -2,6 +2,7 @@ FROM oven/bun:1-alpine
 WORKDIR /app
 
 COPY package.json bun.lock ./
+COPY tsconfig.base.json ./
 COPY shared/package.json shared/
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
