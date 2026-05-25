@@ -17,7 +17,15 @@ export async function writeProjectManifest(projectDir, manifest) {
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-export function createProjectManifest({ appName, packageName, featureIds }) {
+export function createProjectManifest({
+  appName,
+  packageName,
+  featureIds,
+  tailscale,
+  frontendPort,
+  backendPort,
+  databaseProvider
+}) {
   return {
     schemaVersion: frameworkMetadata.manifestSchemaVersion,
     framework: {
@@ -35,6 +43,16 @@ export function createProjectManifest({ appName, packageName, featureIds }) {
     templateVersion: frameworkMetadata.templateVersion,
     packageManager: frameworkMetadata.packageManager,
     runtime: frameworkMetadata.runtime,
+    network: {
+      tailscale
+    },
+    ports: {
+      frontend: frontendPort,
+      backend: backendPort
+    },
+    database: {
+      provider: databaseProvider
+    },
     features: featureIds
   };
 }

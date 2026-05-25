@@ -9,6 +9,7 @@ import { readProjectManifest } from "./manifest.js";
 import { frameworkMetadata } from "./metadata.js";
 
 const subcommands = new Set(["create", "add", "info", "features"]);
+const createFlagsWithValues = new Set(["--frontend-port", "--backend-port"]);
 
 function parseBooleanFlag(argv, name) {
   if (argv.includes(`--${name}`)) {
@@ -20,6 +21,56 @@ function parseBooleanFlag(argv, name) {
   }
 
   return undefined;
+}
+
+function parseFlagValue(argv, name) {
+  const index = argv.indexOf(`--${name}`);
+  if (index === -1) {
+    return undefined;
+  }
+
+  const value = argv[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`Missing value for --${name}.`);
+  }
+
+  return value;
+}
+
+function parsePortFlag(argv, name) {
+  const value = parseFlagValue(argv, name);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return parsePort(value, `--${name}`);
+}
+
+function parsePort(value, label) {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(`${label} must be an integer between 1 and 65535.`);
+  }
+
+  return port;
+}
+
+function getPositionalArgs(argv) {
+  const positional = [];
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (createFlagsWithValues.has(value)) {
+      index += 1;
+      continue;
+    }
+
+    if (!value.startsWith("--")) {
+      positional.push(value);
+    }
+  }
+
+  return positional;
 }
 
 function getCommand(argv) {
@@ -40,10 +91,14 @@ function getCommandArgs(argv, command) {
 }
 
 function parseCreateArgs(argv) {
-  const positional = argv.filter((value) => !value.startsWith("--"));
+  const positional = getPositionalArgs(argv);
 
   return {
     destination: positional[0],
+    tailscale: parseBooleanFlag(argv, "tailscale"),
+    frontendPort: parsePortFlag(argv, "frontend-port"),
+    backendPort: parsePortFlag(argv, "backend-port"),
+    sqlite: parseBooleanFlag(argv, "sqlite"),
     auth: parseBooleanFlag(argv, "auth"),
     shadcn: parseBooleanFlag(argv, "shadcn"),
     install: parseBooleanFlag(argv, "install"),
@@ -75,6 +130,12 @@ Usage:
 Create options:
   --auth           Include Clerk authentication
   --no-auth        Skip Clerk authentication
+  --tailscale      Configure Vite for Tailscale local-network access
+  --no-tailscale   Skip Tailscale local-network configuration
+  --frontend-port <port>  Frontend dev server port (default: 5173)
+  --backend-port <port>   Backend dev server port (default: 3000)
+  --sqlite         Use a local SQLite file database with Tailscale mode
+  --no-sqlite      Use PostgreSQL
   --shadcn         Include shadcn/ui starter components
   --no-shadcn      Skip shadcn/ui starter components
   --install        Run bun install after scaffolding
@@ -107,6 +168,35 @@ async function promptForCreateOptions(parsed) {
 
     const appDisplayName = path.basename(destination);
 
+    const tailscale =
+      parsed.tailscale ??
+      (parsed.yes
+        ? false
+        : /^y(es)?$/i.test(await rl.question("Use Tailscale local-network setup? (y/N) ")));
+
+    const frontendPort =
+      parsed.frontendPort ??
+      (parsed.yes
+        ? 5173
+        : parsePort((await rl.question("Frontend port? (5173) ")) || "5173", "Frontend port"));
+
+    const backendPort =
+      parsed.backendPort ??
+      (parsed.yes
+        ? 3000
+        : parsePort((await rl.question("Backend port? (3000) ")) || "3000", "Backend port"));
+
+    if (!tailscale && parsed.sqlite === true) {
+      throw new Error("--sqlite can only be used with --tailscale.");
+    }
+
+    const sqlite =
+      tailscale &&
+      (parsed.sqlite ??
+        (parsed.yes
+          ? false
+          : /^y(es)?$/i.test(await rl.question("Use a local SQLite file instead of PostgreSQL? (y/N) "))));
+
     const auth =
       parsed.auth ??
       (parsed.yes ? false : /^y(es)?$/i.test(await rl.question("Include Clerk auth? (y/N) ")));
@@ -128,6 +218,10 @@ async function promptForCreateOptions(parsed) {
     return {
       destination,
       appDisplayName,
+      tailscale,
+      frontendPort,
+      backendPort,
+      databaseProvider: sqlite ? "sqlite" : "postgres",
       auth,
       shadcn,
       install,
@@ -163,14 +257,14 @@ async function runCreate(argv) {
   const parsed = parseCreateArgs(argv);
   const options = await promptForCreateOptions(parsed);
   const result = await scaffoldProject(options);
+  const databaseStartStep = options.databaseProvider === "sqlite" ? "  bun run db:migrate\n" : "  bun run db:start\n";
 
   console.log(`
 Created ${frameworkMetadata.displayName} app in ${result.projectDir}
 
 Next steps:
   cd ${options.destination}
-  bun run db:start
-  bun run dev
+${databaseStartStep}  bun run dev
 `);
 }
 
@@ -215,6 +309,10 @@ async function runInfo() {
   console.log(`Template version: ${manifest.templateVersion}`);
   console.log(`Package manager: ${manifest.packageManager}`);
   console.log(`Runtime: ${manifest.runtime}`);
+  console.log(`Tailscale: ${manifest.network?.tailscale ? "enabled" : "disabled"}`);
+  console.log(`Frontend port: ${manifest.ports?.frontend ?? 5173}`);
+  console.log(`Backend port: ${manifest.ports?.backend ?? 3000}`);
+  console.log(`Database: ${manifest.database?.provider ?? "postgres"}`);
   console.log(`Features: ${manifest.features.length > 0 ? manifest.features.join(", ") : "(none)"}`);
 }
 

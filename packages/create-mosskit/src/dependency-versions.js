@@ -78,6 +78,17 @@ export const templateDependencyVersions = {
   }
 };
 
+export const databaseDependencyVersions = {
+  sqlite: {
+    backend: {
+      dependencies: {
+        "@libsql/client": "^0.17.3"
+      },
+      devDependencies: {}
+    }
+  }
+};
+
 function sortEntries(record) {
   return Object.fromEntries(Object.entries(record).sort(([left], [right]) => left.localeCompare(right)));
 }
@@ -89,7 +100,15 @@ export function mergeDependencySet(base = {}, overrides = {}) {
   });
 }
 
-export function applyTemplateVersions(manifests, featureIds = []) {
+function removeDependencies(dependencies, dependencyNames) {
+  const nextDependencies = { ...dependencies };
+  for (const dependencyName of dependencyNames) {
+    delete nextDependencies[dependencyName];
+  }
+  return sortEntries(nextDependencies);
+}
+
+export function applyTemplateVersions(manifests, featureIds = [], { databaseProvider = "postgres" } = {}) {
   const nextManifests = {
     root: {
       ...manifests.root,
@@ -132,6 +151,17 @@ export function applyTemplateVersions(manifests, featureIds = []) {
       )
     }
   };
+
+  if (databaseProvider === "sqlite") {
+    nextManifests.backend.dependencies = mergeDependencySet(
+      removeDependencies(nextManifests.backend.dependencies, ["postgres"]),
+      databaseDependencyVersions.sqlite.backend.dependencies
+    );
+    nextManifests.backend.devDependencies = mergeDependencySet(
+      nextManifests.backend.devDependencies,
+      databaseDependencyVersions.sqlite.backend.devDependencies
+    );
+  }
 
   if (featureIds.includes("auth")) {
     nextManifests.frontend.dependencies = mergeDependencySet(
