@@ -33,7 +33,8 @@
     "templates"
   ],
   "scripts": {
-    "prepack": "node ../../scripts/sync-templates.mjs"
+    "prepack": "node ../../scripts/sync-templates.mjs",
+    "release": "npm publish --access public"
   },
   "publishConfig": {
     "access": "public"

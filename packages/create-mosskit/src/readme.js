@@ -4,12 +4,20 @@ function hasFeature(features, featureId) {
   return features.includes(featureId);
 }
 
-export function buildProjectReadme({ appName, features, stackDisplayName }) {
+export function buildProjectReadme({
+  appName,
+  features,
+  stackDisplayName,
+  tailscale = false,
+  frontendPort = 5173,
+  backendPort = 3000,
+  databaseProvider = "postgres"
+}) {
   const selectedFeatures = [
     "Bun workspaces",
     "Vite + React",
     "Hono",
-    "Drizzle + PostgreSQL",
+    databaseProvider === "sqlite" ? "Drizzle + SQLite" : "Drizzle + PostgreSQL",
     "shared TypeScript + Zod"
   ];
 
@@ -32,6 +40,36 @@ export function buildProjectReadme({ appName, features, stackDisplayName }) {
     }
   }
 
+  const localCommands =
+    databaseProvider === "sqlite"
+      ? `bun install
+bun run db:migrate
+bun run dev`
+      : `bun install
+bun run db:start
+bun run dev`;
+
+  const usefulCommands =
+    databaseProvider === "sqlite"
+      ? `bun run dev
+bun run build
+bun run test
+bun run lint
+bun run typecheck
+bun run db:migrate
+bun run db:studio`
+      : `bun run dev
+bun run build
+bun run test
+bun run lint
+bun run typecheck
+bun run db:start
+bun run db:migrate`;
+
+  const networkNote = tailscale
+    ? "- The frontend dev server is configured for Tailscale hosts and proxies `/api` to the local backend.\n"
+    : "";
+
   return `# ${appName}
 
 This project was generated with ${stackDisplayName}.
@@ -43,13 +81,12 @@ ${selectedFeatures.map((feature) => `- ${feature}`).join("\n")}
 ## Local Development
 
 \`\`\`bash
-bun install
-bun run db:start
-bun run dev
+${localCommands}
 \`\`\`
 
-The frontend runs on \`http://localhost:5173\`.
-The backend runs on \`http://localhost:3000\`.
+The frontend runs on \`http://localhost:${frontendPort}\`.
+The backend runs on \`http://localhost:${backendPort}\`.
+${networkNote}
 
 ## Environment Setup
 
@@ -58,13 +95,7 @@ ${envSteps.map((step) => `- ${step}`).join("\n")}
 ## Useful Commands
 
 \`\`\`bash
-bun run dev
-bun run build
-bun run test
-bun run lint
-bun run typecheck
-bun run db:start
-bun run db:migrate
+${usefulCommands}
 \`\`\`
 
 ## App Management

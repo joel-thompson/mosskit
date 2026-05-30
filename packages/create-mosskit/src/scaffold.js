@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -141,13 +141,25 @@ function getProjectPaths(projectDir) {
     backendPackage: path.join(projectDir, "backend", "package.json"),
     sharedPackage: path.join(projectDir, "shared", "package.json"),
     frontendEnv: path.join(projectDir, "frontend", ".env.example"),
+    frontendLocalEnv: path.join(projectDir, "frontend", ".env"),
     backendEnv: path.join(projectDir, "backend", ".env.example"),
+    backendLocalEnv: path.join(projectDir, "backend", ".env"),
+    frontendViteConfig: path.join(projectDir, "frontend", "vite.config.ts"),
+    backendEnvSource: path.join(projectDir, "backend", "src", "utils", "env.ts"),
+    backendEnvTest: path.join(projectDir, "backend", "src", "utils", "env.test.ts"),
+    backendDbIndex: path.join(projectDir, "backend", "src", "db", "index.ts"),
+    backendDbSchema: path.join(projectDir, "backend", "src", "db", "schema.ts"),
+    backendDrizzleConfig: path.join(projectDir, "backend", "drizzle.config.ts"),
+    backendInitialMigration: path.join(projectDir, "backend", "drizzle", "0000_initial.sql"),
+    backendCompose: path.join(projectDir, "backend", "compose.yaml"),
+    gitignore: path.join(projectDir, ".gitignore"),
+    agents: path.join(projectDir, "AGENTS.md"),
     readme: path.join(projectDir, "README.md"),
     railwayReadme: path.join(projectDir, "deploy", "railway", "README.md")
   };
 }
 
-async function syncProjectPackageJson(projectDir, { featureIds, packageName }) {
+async function syncProjectPackageJson(projectDir, { featureIds, packageName, databaseProvider = "postgres" }) {
   const paths = getProjectPaths(projectDir);
 
   const manifests = applyTemplateVersions(
@@ -157,10 +169,19 @@ async function syncProjectPackageJson(projectDir, { featureIds, packageName }) {
       backend: await readJson(paths.backendPackage),
       shared: await readJson(paths.sharedPackage)
     },
-    featureIds
+    featureIds,
+    { databaseProvider }
   );
 
   manifests.root.name = packageName;
+
+  if (databaseProvider === "sqlite") {
+    delete manifests.root.scripts["db:start"];
+    delete manifests.root.scripts["db:stop"];
+    delete manifests.backend.scripts["db:start"];
+    delete manifests.backend.scripts["db:stop"];
+    manifests.backend.scripts["db:migrate"] = "drizzle-kit push";
+  }
 
   await writeJson(paths.rootPackage, manifests.root);
   await writeJson(paths.frontendPackage, manifests.frontend);
@@ -193,7 +214,215 @@ async function syncProjectEnvExamples(projectDir, featureIds) {
     }
 
     await appendUniqueLines(paths.frontendEnv, feature.envExamples.frontend);
+    if (await pathExists(paths.frontendLocalEnv)) {
+      await appendUniqueLines(paths.frontendLocalEnv, feature.envExamples.frontend);
+    }
     await appendUniqueLines(paths.backendEnv, feature.envExamples.backend);
+    if (await pathExists(paths.backendLocalEnv)) {
+      await appendUniqueLines(paths.backendLocalEnv, feature.envExamples.backend);
+    }
+  }
+}
+
+function buildFrontendViteConfig({ tailscale, frontendPort, backendPort }) {
+  const serverConfig = tailscale
+    ? `  server: {
+    host: "0.0.0.0",
+    port: ${frontendPort},
+    strictPort: true,
+    allowedHosts: [".ts.net"],
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:${backendPort}",
+        changeOrigin: true
+      }
+    }
+  },`
+    : `  server: {
+    port: ${frontendPort}
+  },`;
+
+  return `import path from "node:path";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
+
+export default defineConfig({
+  plugins: [
+    tanstackRouter({
+      target: "react",
+      autoCodeSplitting: true
+    }),
+    react(),
+    tailwindcss()
+  ],
+${serverConfig}
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      shared: path.resolve(__dirname, "../shared/src/index.ts"),
+      "shared/constants": path.resolve(__dirname, "../shared/src/constants/index.ts"),
+      "shared/types": path.resolve(__dirname, "../shared/src/types/index.ts"),
+      "shared/utils": path.resolve(__dirname, "../shared/src/utils/index.ts"),
+      "shared/validation": path.resolve(__dirname, "../shared/src/validation/index.ts")
+    }
+  }
+});
+`;
+}
+
+function buildBackendEnvSource({ backendPort, frontendPort, databaseProvider }) {
+  const databaseUrl =
+    databaseProvider === "sqlite"
+      ? "file:./mosskit.sqlite"
+      : "postgres://postgres:postgres@localhost:5444/postgres";
+
+  return `import { z } from "zod";
+
+const backendEnvSchema = z.object({
+  PORT: z.coerce.number().int().positive().default(${backendPort}),
+  FRONTEND_URL: z.string().default("http://localhost:${frontendPort}"),
+  DATABASE_URL: z.string().default("${databaseUrl}"),
+  CLERK_PUBLISHABLE_KEY: z.string().optional(),
+  CLERK_SECRET_KEY: z.string().optional()
+});
+
+export function getBackendEnv(input: Record<string, string | undefined> = process.env) {
+  return backendEnvSchema.parse(input);
+}
+`;
+}
+
+function buildBackendEnvTest({ backendPort, frontendPort }) {
+  return `import { getBackendEnv } from "./env";
+
+test("getBackendEnv applies defaults", () => {
+  expect(getBackendEnv({})).toMatchObject({
+    PORT: ${backendPort},
+    FRONTEND_URL: "http://localhost:${frontendPort}"
+  });
+});
+`;
+}
+
+function buildBackendEnv({ backendPort, frontendPort, databaseProvider }) {
+  const databaseUrl =
+    databaseProvider === "sqlite"
+      ? "file:./mosskit.sqlite"
+      : "postgres://postgres:postgres@localhost:5444/postgres";
+
+  return `PORT=${backendPort}
+FRONTEND_URL=http://localhost:${frontendPort}
+DATABASE_URL=${databaseUrl}
+`;
+}
+
+function buildFrontendEnv({ tailscale, backendPort }) {
+  return `VITE_API_URL=${tailscale ? "" : `http://localhost:${backendPort}`}
+`;
+}
+
+function buildSqliteDbIndex() {
+  return `import { createClient } from "@libsql/client";
+
+export async function getDatabaseHealth(connectionString: string) {
+  const db = createClient({
+    url: connectionString
+  });
+
+  try {
+    await db.execute("select 1");
+    return {
+      configured: true,
+      connected: true
+    };
+  } catch {
+    return {
+      configured: true,
+      connected: false
+    };
+  } finally {
+    db.close();
+  }
+}
+`;
+}
+
+function buildSqliteSchema() {
+  return `import { sql } from "drizzle-orm";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const starterMessages = sqliteTable("starter_messages", {
+  id: text("id")
+    .$defaultFn(() => crypto.randomUUID())
+    .primaryKey(),
+  body: text("body").notNull(),
+  createdAt: text("created_at").default(sql\`CURRENT_TIMESTAMP\`).notNull()
+});
+`;
+}
+
+function buildSqliteDrizzleConfig() {
+  return `import { defineConfig } from "drizzle-kit";
+import { getBackendEnv } from "./src/utils/env";
+
+export default defineConfig({
+  dialect: "sqlite",
+  schema: "./src/db/schema.ts",
+  out: "./drizzle",
+  dbCredentials: {
+    url: getBackendEnv().DATABASE_URL
+  }
+});
+`;
+}
+
+function buildSqliteInitialMigration() {
+  return `CREATE TABLE IF NOT EXISTS starter_messages (
+  id TEXT PRIMARY KEY NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+`;
+}
+
+async function configureSqliteAgentsFile(filePath) {
+  const content = await readFile(filePath, "utf8");
+  const nextContent = content
+    .replace(
+      "- `backend`: Hono API with Drizzle, PostgreSQL Docker setup, and example backend tests",
+      "- `backend`: Hono API with Drizzle, SQLite local file setup, and example backend tests"
+    )
+    .replace(
+      "- `bun run db:start` and `bun run db:stop` manage the local PostgreSQL container.",
+      "- `bun run db:migrate` applies migrations to the local SQLite database file."
+    );
+
+  await writeFile(filePath, nextContent);
+}
+
+async function configureProjectSettings(projectDir, { tailscale, frontendPort, backendPort, databaseProvider }) {
+  const paths = getProjectPaths(projectDir);
+  const frontendEnv = buildFrontendEnv({ tailscale, backendPort });
+  const backendEnv = buildBackendEnv({ backendPort, frontendPort, databaseProvider });
+
+  await writeFile(paths.frontendViteConfig, buildFrontendViteConfig({ tailscale, frontendPort, backendPort }));
+  await writeFile(paths.frontendEnv, frontendEnv);
+  await writeFile(paths.frontendLocalEnv, frontendEnv);
+  await writeFile(paths.backendEnv, backendEnv);
+  await writeFile(paths.backendLocalEnv, backendEnv);
+  await writeFile(paths.backendEnvSource, buildBackendEnvSource({ backendPort, frontendPort, databaseProvider }));
+  await writeFile(paths.backendEnvTest, buildBackendEnvTest({ backendPort, frontendPort }));
+
+  if (databaseProvider === "sqlite") {
+    await writeFile(paths.backendDbIndex, buildSqliteDbIndex());
+    await writeFile(paths.backendDbSchema, buildSqliteSchema());
+    await writeFile(paths.backendDrizzleConfig, buildSqliteDrizzleConfig());
+    await writeFile(paths.backendInitialMigration, buildSqliteInitialMigration());
+    await appendUniqueLines(paths.gitignore, ["backend/*.sqlite", "backend/*.sqlite-*"]);
+    await rm(paths.backendCompose, { force: true });
+    await configureSqliteAgentsFile(paths.agents);
   }
 }
 
@@ -250,7 +479,11 @@ async function writeProjectReadme(projectDir, manifest) {
     buildProjectReadme({
       appName: manifest.project.name,
       features: manifest.features,
-      stackDisplayName: frameworkMetadata.displayName
+      stackDisplayName: frameworkMetadata.displayName,
+      tailscale: manifest.network?.tailscale ?? false,
+      frontendPort: manifest.ports?.frontend ?? 5173,
+      backendPort: manifest.ports?.backend ?? 3000,
+      databaseProvider: manifest.database?.provider ?? "postgres"
     })
   );
 }
@@ -298,6 +531,10 @@ export async function scaffoldProject({
   shadcn,
   install,
   git,
+  tailscale = false,
+  frontendPort = 5173,
+  backendPort = 3000,
+  databaseProvider = "postgres",
   featureIds = []
 }) {
   const selectedFeatureIds = getFeatureIdsFromOptions({ auth, shadcn, featureIds });
@@ -316,14 +553,25 @@ export async function scaffoldProject({
   await renameGitignoreFiles(projectDir);
   await syncProjectPackageJson(projectDir, {
     featureIds: selectedFeatureIds,
-    packageName
+    packageName,
+    databaseProvider
+  });
+  await configureProjectSettings(projectDir, {
+    tailscale,
+    frontendPort,
+    backendPort,
+    databaseProvider
   });
   await syncProjectEnvExamples(projectDir, selectedFeatureIds);
 
   const manifest = createProjectManifest({
     appName: appDisplayName,
     packageName,
-    featureIds: selectedFeatureIds
+    featureIds: selectedFeatureIds,
+    tailscale,
+    frontendPort,
+    backendPort,
+    databaseProvider
   });
 
   await writeProjectMetadata(projectDir, manifest);
@@ -356,7 +604,8 @@ export async function addFeatureToProject({ projectDir, featureId, install = fal
   await applyFeatureOverlays(projectDir, [featureId]);
   await syncProjectPackageJson(projectDir, {
     featureIds: nextFeatureIds,
-    packageName: manifest.project.packageName
+    packageName: manifest.project.packageName,
+    databaseProvider: manifest.database?.provider ?? "postgres"
   });
   await syncProjectEnvExamples(projectDir, [featureId]);
 
