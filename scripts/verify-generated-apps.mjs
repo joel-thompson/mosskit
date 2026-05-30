@@ -2,8 +2,9 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import net from "node:net";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -34,7 +35,35 @@ async function runCommand(command, args, cwd) {
   });
 }
 
-async function runDevCheck(appDir) {
+async function waitForSuccessfulResponse(url, validateBody = () => true) {
+  const deadline = Date.now() + 15000;
+  let lastError;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const body = await response.text();
+        if (validateBody(body)) {
+          return body;
+        }
+
+        lastError = new Error(`Response from ${url} did not match the expected shape.`);
+      } else {
+        lastError = new Error(`Request to ${url} returned ${response.status}.`);
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw lastError ?? new Error(`Timed out waiting for a successful response from ${url}`);
+}
+
+async function runDevCheck(appDir, manifest) {
   log(`==> Checking root dev orchestration`);
 
   await new Promise((resolve, reject) => {
@@ -57,9 +86,36 @@ async function runDevCheck(appDir) {
       callback();
     };
 
-    const maybeStop = () => {
-      if (sawBackend && sawFrontend) {
+    const maybeStop = async () => {
+      if (!sawBackend || !sawFrontend) {
+        return;
+      }
+
+      try {
+        await waitForSuccessfulResponse(`http://127.0.0.1:${manifest.ports.frontend}/`, (body) =>
+          body.includes('<div id="root"></div>')
+        );
+        await waitForSuccessfulResponse(`http://127.0.0.1:${manifest.ports.backend}/health`, (body) =>
+          body.includes('"status":"ok"')
+        );
+        await waitForSuccessfulResponse(
+          `http://127.0.0.1:${manifest.ports.backend}/api/v1/example/status`,
+          (body) => body.includes('"success":true')
+        );
+
+        if (manifest.network?.tailscale) {
+          await waitForSuccessfulResponse(
+            `http://127.0.0.1:${manifest.ports.frontend}/api/v1/example/status`,
+            (body) => body.includes('"success":true')
+          );
+        }
+
         child.kill("SIGINT");
+      } catch (error) {
+        finish(() => {
+          child.kill("SIGKILL");
+          reject(error);
+        });
       }
     };
 
@@ -75,7 +131,7 @@ async function runDevCheck(appDir) {
         sawFrontend = true;
       }
 
-      maybeStop();
+      void maybeStop();
     };
 
     const timeout = setTimeout(() => {
@@ -116,21 +172,72 @@ async function runDevCheck(appDir) {
   });
 }
 
+async function reservePort() {
+  return await new Promise((resolve, reject) => {
+    const server = net.createServer();
+
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("Could not determine reserved port")));
+        return;
+      }
+
+      const { port } = address;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(port);
+      });
+    });
+  });
+}
+
+function includesFlag(args, flag) {
+  return args.includes(flag);
+}
+
 async function verifyScenario(tempDir, name, createArgs, postCreateArgs = []) {
   const appDir = path.join(tempDir, name);
+  const backendPort = await reservePort();
+  const frontendPort = await reservePort();
+  const scaffoldArgs = [...createArgs];
+
+  if (!includesFlag(scaffoldArgs, "--frontend-port")) {
+    scaffoldArgs.push("--frontend-port", String(frontendPort));
+  }
+
+  if (!includesFlag(scaffoldArgs, "--backend-port")) {
+    scaffoldArgs.push("--backend-port", String(backendPort));
+  }
 
   log(`\n==> Scaffolding ${name}`);
-  await runCommand(process.execPath, [cliPath, appDir, "--yes", "--no-install", "--no-git", ...createArgs], repoRoot);
+  await runCommand(
+    process.execPath,
+    [cliPath, appDir, "--yes", "--no-install", "--no-git", ...scaffoldArgs],
+    repoRoot
+  );
 
   for (const args of postCreateArgs) {
     log(`==> Running ${args.join(" ")} for ${name}`);
     await runCommand(process.execPath, [cliPath, ...args], appDir);
   }
 
+  const manifest = JSON.parse(await readFile(path.join(appDir, "mosskit.json"), "utf8"));
+
   log(`==> Installing dependencies for ${name}`);
   await runCommand("bun", ["install"], appDir);
 
-  await runDevCheck(appDir);
+  if (manifest.database?.provider === "sqlite") {
+    log(`==> Running db:migrate for ${name}`);
+    await runCommand("bun", ["run", "db:migrate"], appDir);
+  }
+
+  await runDevCheck(appDir, manifest);
 
   log(`==> Running typecheck for ${name}`);
   await runCommand("bun", ["run", "typecheck"], appDir);
@@ -150,6 +257,10 @@ try {
   await verifyScenario(tempDir, "full-app", ["--auth", "--shadcn"]);
   await verifyScenario(tempDir, "base-add-auth-app", [], [["add", "auth"]]);
   await verifyScenario(tempDir, "base-add-shadcn-app", [], [["add", "shadcn"]]);
+  await verifyScenario(tempDir, "tailscale-sqlite-app", [
+    "--tailscale",
+    "--sqlite",
+  ]);
   log(`\nGenerated app verification passed.`);
   log(`Workspace: ${tempDir}`);
 } finally {

@@ -46,7 +46,7 @@ async function runCli(args, cwd = repoRoot) {
   ].join(" ");
 
   try {
-    await execFileAsync("zsh", ["-lc", command]);
+    await execFileAsync("sh", ["-lc", command]);
     return {
       stdout: await readFile(stdoutPath, "utf8"),
       stderr: await readFile(stderrPath, "utf8")
